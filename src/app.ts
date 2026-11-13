@@ -5,6 +5,7 @@ import { auth } from "./config/auth.js";
 import { env } from "./config/env.js";
 import healthRoutes from "./routes/health.routes.js";
 import studioRoutes from "./routes/studio.routes.js";
+import bookingRoutes from "./routes/booking.routes.js";
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use(express.json());
 // 4. Application routes
 app.use("/api", healthRoutes);
 app.use("/api", studioRoutes);
+app.use("/api", bookingRoutes);
 
 // 5. Centralized 404 handler
 app.use((_req: Request, res: Response) => {
