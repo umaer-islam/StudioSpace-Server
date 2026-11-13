@@ -5,6 +5,7 @@ import {
   createStudioHandler,
   updateStudioHandler,
   deleteStudioHandler,
+  getHostStudiosHandler,
 } from "../controllers/studio.controller.js";
 import {
   requireAuth,
@@ -13,6 +14,14 @@ import {
 } from "../middleware/auth.middleware.js";
 
 const router = Router();
+
+// Host-specific listing retrieval (must precede /studios/:id)
+router.get(
+  "/studios/host/my-listings",
+  requireAuth,
+  requireRole(["Host"]),
+  getHostStudiosHandler
+);
 
 // Public studio endpoints
 router.get("/studios", getStudiosHandler);

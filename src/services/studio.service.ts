@@ -159,3 +159,8 @@ export async function deleteStudio(id: string): Promise<boolean> {
   const result = await collection.deleteOne({ _id: new ObjectId(id) });
   return result.deletedCount === 1;
 }
+
+export async function getHostStudios(hostId: string): Promise<Studio[]> {
+  const collection = getCollection();
+  return collection.find({ hostId }).sort({ createdAt: -1 }).toArray();
+}

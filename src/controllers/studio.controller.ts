@@ -5,6 +5,7 @@ import {
   getStudioById,
   updateStudio,
   deleteStudio,
+  getHostStudios,
 } from "../services/studio.service.js";
 import {
   validateCreateStudio,
@@ -178,6 +179,31 @@ export async function deleteStudioHandler(
     res.status(200).json({
       success: true,
       message: "Studio deleted successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getHostStudiosHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const hostId = req.user?.id;
+    if (!hostId) {
+      res.status(401).json({
+        success: false,
+        message: "Authentication required to view host listings",
+      });
+      return;
+    }
+
+    const studios = await getHostStudios(hostId);
+    res.status(200).json({
+      success: true,
+      data: studios,
     });
   } catch (error) {
     next(error);
