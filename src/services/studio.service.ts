@@ -36,6 +36,7 @@ export async function createStudio(input: CreateStudioInput): Promise<Studio> {
     rating: input.rating ?? 5.0,
     reviewCount: input.reviewCount ?? 0,
     status: input.status ?? "active",
+    bookingLockVersion: 0,
     createdAt: now,
     updatedAt: now,
   };

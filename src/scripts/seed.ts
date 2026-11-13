@@ -234,11 +234,21 @@ async function seed() {
     } else {
       await collection.insertOne({
         ...studio,
+        bookingLockVersion: 0,
         createdAt: now,
         updatedAt: now,
       } as any);
       insertedCount++;
     }
+  }
+
+  // Ensure any existing studios also have bookingLockVersion initialized to 0
+  const updatedExisting = await collection.updateMany(
+    { bookingLockVersion: { $exists: false } },
+    { $set: { bookingLockVersion: 0 } }
+  );
+  if (updatedExisting.modifiedCount > 0) {
+    console.log(`  Initialized bookingLockVersion: 0 on ${updatedExisting.modifiedCount} existing studios`);
   }
 
   console.log(`\nSeed completed:`);

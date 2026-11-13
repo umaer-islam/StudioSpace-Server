@@ -28,6 +28,7 @@ export interface Studio {
   rating: number;
   reviewCount: number;
   status: StudioStatus;
+  bookingLockVersion?: number;
   createdAt: Date;
   updatedAt: Date;
 }

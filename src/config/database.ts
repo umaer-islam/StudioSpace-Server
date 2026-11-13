@@ -52,6 +52,9 @@ export async function connectToDatabase(): Promise<Db> {
     await dbInstance.command({ ping: 1 });
     console.log(`[Database] Successfully connected to MongoDB Atlas database: ${env.DB_NAME}`);
 
+    // Ensure database indexes
+    await ensureIndexes();
+
     return dbInstance;
   } catch (error) {
     console.error("[Database] Connection to MongoDB failed:", error instanceof Error ? error.message : "Unknown error");
@@ -68,8 +71,45 @@ export function getDatabase(): Db {
   return dbInstance;
 }
 
+export function getClient(): MongoClient {
+  if (!client) {
+    throw new Error("[Database] MongoClient is not connected. Call connectToDatabase() first.");
+  }
+  return client;
+}
+
 export function isDatabaseConnected(): boolean {
   return dbInstance !== null;
+}
+
+export async function ensureIndexes(): Promise<void> {
+  if (!dbInstance) return;
+  try {
+    const bookingsCol = dbInstance.collection("bookings");
+    await Promise.all([
+      bookingsCol.createIndex(
+        { studioId: 1, status: 1, startTime: 1 },
+        { name: "idx_studio_status_start" }
+      ),
+      bookingsCol.createIndex(
+        { creatorId: 1, createdAt: -1 },
+        { name: "idx_creator_created" }
+      ),
+      bookingsCol.createIndex(
+        { hostId: 1, createdAt: -1 },
+        { name: "idx_host_created" }
+      ),
+      bookingsCol.createIndex(
+        { studioId: 1, createdAt: -1 },
+        { name: "idx_studio_created" }
+      ),
+    ]);
+  } catch (error) {
+    console.warn(
+      "[Database] Could not ensure all indexes:",
+      error instanceof Error ? error.message : "Unknown error"
+    );
+  }
 }
 
 export async function pingDatabase(): Promise<boolean> {
