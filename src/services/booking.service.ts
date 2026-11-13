@@ -194,12 +194,38 @@ export async function confirmBooking(
         throw new BookingValidationError(`Cannot confirm a booking that is currently '${booking.status}'.`);
       }
 
+      // Reject confirmation if pending booking is older than 24 hours
+      const pendingExpirationThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      if (booking.createdAt < pendingExpirationThreshold) {
+        throw new BookingValidationError(
+          "This reservation request has expired (>24 hours) and can no longer be confirmed."
+        );
+      }
+
       // Mutex lock the studio document to serialize availability modification
       await studiosCol.findOneAndUpdate(
         { _id: booking.studioId },
         { $inc: { bookingLockVersion: 1 } },
         { session }
       );
+
+      // Verify no competing booking was confirmed for this time slot
+      const existingConflict = await bookingsCol.findOne(
+        {
+          _id: { $ne: booking._id },
+          studioId: booking.studioId,
+          status: "confirmed",
+          startTime: { $lt: booking.endTime },
+          endTime: { $gt: booking.startTime },
+        },
+        { session }
+      );
+
+      if (existingConflict) {
+        throw new BookingConflictError(
+          "Cannot confirm: this time slot is already occupied by another confirmed reservation."
+        );
+      }
 
       const now = new Date();
       const result = await bookingsCol.findOneAndUpdate(
