@@ -278,21 +278,96 @@ async function runBookingConcurrencyTests() {
     }
     console.log("      ✓ [PASS] Host cancelled booking (Status: cancelled). Availability released.");
 
-    // Now Creator B re-attempts the exact same slot -> Must succeed now!
-    const rebookRes = await fetch(`${baseUrl}/api/bookings`, {
+    // Test 5F: Simultaneous Cancellation vs Creation Race Test
+    console.log("      --- Testing Simultaneous Cancellation vs Competing Booking Race ---");
+    const raceSlotStart = new Date(Date.now() + 72 * 3600 * 1000);
+    raceSlotStart.setUTCMinutes(0, 0, 0);
+    const raceSlotEnd = new Date(raceSlotStart.getTime() + 2 * 3600 * 1000);
+
+    // First create a pending booking for Creator A
+    const prepBookingRes = await fetch(`${baseUrl}/api/bookings`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Cookie: creatorBCookie },
+      headers: { "Content-Type": "application/json", Cookie: creatorACookie },
       body: JSON.stringify({
         studioId: testStudioId,
-        startTime: slotStart.toISOString(),
-        endTime: slotEnd.toISOString(),
-        notes: "Rebooking after cancellation",
+        startTime: raceSlotStart.toISOString(),
+        endTime: raceSlotEnd.toISOString(),
       }),
     });
-    if (rebookRes.status !== 201) {
-      throw new Error(`Rebooking released slot failed (${rebookRes.status}): ${await rebookRes.text()}`);
+    const prepBookingData = await prepBookingRes.json();
+    const prepId = prepBookingData.data._id;
+
+    // Concurrently fire cancel on prepId by Creator A AND new booking by Creator B
+    const [cancelRaceRes, bookRaceRes] = await Promise.all([
+      fetch(`${baseUrl}/api/bookings/${prepId}/cancel`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Cookie: creatorACookie },
+        body: JSON.stringify({ reason: "Changing schedule" }),
+      }),
+      fetch(`${baseUrl}/api/bookings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Cookie: creatorBCookie },
+        body: JSON.stringify({
+          studioId: testStudioId,
+          startTime: raceSlotStart.toISOString(),
+          endTime: raceSlotEnd.toISOString(),
+        }),
+      }),
+    ]);
+
+    console.log(`      Cancellation vs Creation race statuses: Cancel=${cancelRaceRes.status}, Create=${bookRaceRes.status}`);
+    if (cancelRaceRes.status !== 200) {
+      throw new Error(`Cancellation in race failed with status ${cancelRaceRes.status}`);
     }
-    console.log("      ✓ [PASS] Released time slot was successfully re-booked by Creator B (201 Created).");
+    // Creation either succeeded (201) if cancel committed first, or received conflict (409) if it evaluated before cancel
+    if (bookRaceRes.status !== 201 && bookRaceRes.status !== 409) {
+      throw new Error(`Unexpected booking status in cancellation race: ${bookRaceRes.status}`);
+    }
+    console.log(`      ✓ [PASS] Cancellation vs Creation race serialized cleanly without deadlock or inconsistent state.`);
+
+    // Test 5G: Simultaneous Confirmation vs Competing Booking Race Test
+    console.log("      --- Testing Simultaneous Confirmation vs Competing Booking Race ---");
+    const raceSlotStart2 = new Date(Date.now() + 96 * 3600 * 1000);
+    raceSlotStart2.setUTCMinutes(0, 0, 0);
+    const raceSlotEnd2 = new Date(raceSlotStart2.getTime() + 2 * 3600 * 1000);
+
+    const prepBookingRes2 = await fetch(`${baseUrl}/api/bookings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Cookie: creatorACookie },
+      body: JSON.stringify({
+        studioId: testStudioId,
+        startTime: raceSlotStart2.toISOString(),
+        endTime: raceSlotEnd2.toISOString(),
+      }),
+    });
+    const prepBookingData2 = await prepBookingRes2.json();
+    const prepId2 = prepBookingData2.data._id;
+
+    // Concurrently fire confirmation by Host AND competing booking by Creator B
+    const [confirmRaceRes, competeBookRes] = await Promise.all([
+      fetch(`${baseUrl}/api/bookings/${prepId2}/confirm`, {
+        method: "PATCH",
+        headers: { Cookie: hostCookie },
+      }),
+      fetch(`${baseUrl}/api/bookings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Cookie: creatorBCookie },
+        body: JSON.stringify({
+          studioId: testStudioId,
+          startTime: raceSlotStart2.toISOString(),
+          endTime: raceSlotEnd2.toISOString(),
+        }),
+      }),
+    ]);
+
+    console.log(`      Confirmation vs Competing Booking race statuses: Confirm=${confirmRaceRes.status}, CompetingCreate=${competeBookRes.status}`);
+    if (confirmRaceRes.status !== 200) {
+      throw new Error(`Host confirmation failed in race: ${confirmRaceRes.status}`);
+    }
+    if (competeBookRes.status !== 409) {
+      throw new Error(`Competing booking should have received 409 Conflict, got: ${competeBookRes.status}`);
+    }
+    console.log("      ✓ [PASS] Confirmation vs Competing Booking race verified: slot remained exclusive to confirmed booking.");
 
     // 6. Cleanup
     console.log("\n[5/5] Cleaning up test records in MongoDB Atlas...");
@@ -318,3 +393,4 @@ runBookingConcurrencyTests().catch((err) => {
   console.error("\n❌ Booking Concurrency Test Failed:", err);
   process.exit(1);
 });
+

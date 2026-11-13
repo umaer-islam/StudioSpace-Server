@@ -85,11 +85,16 @@ export async function createBooking(
         throw new BookingValidationError("Hosts cannot book their own studio listings.");
       }
 
-      // 3. Serialized overlap query against all active (pending or confirmed) bookings
+      // 3. Serialized overlap query against all active bookings
+      // Pending bookings older than 24 hours expire automatically and do not block availability
+      const pendingExpirationThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const conflictingBooking = await bookingsCol.findOne(
         {
           studioId: input.studioObjectId,
-          status: { $in: ["pending", "confirmed"] },
+          $or: [
+            { status: "confirmed" },
+            { status: "pending", createdAt: { $gte: pendingExpirationThreshold } },
+          ],
           startTime: { $lt: input.endTime },
           endTime: { $gt: input.startTime },
         },
@@ -493,9 +498,13 @@ export async function getStudioAvailability(
   }
 
   const bookingsCol = getBookingsCollection();
+  const pendingThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const query: Filter<Booking> = {
     studioId: new ObjectId(studioId),
-    status: { $in: ["pending", "confirmed"] },
+    $or: [
+      { status: "confirmed" },
+      { status: "pending", createdAt: { $gte: pendingThreshold } },
+    ],
   };
 
   const now = new Date();
@@ -524,3 +533,4 @@ export async function getStudioAvailability(
     status: b.status,
   }));
 }
+

@@ -255,3 +255,4 @@ export function parseBookingFilters(
 
   return { page, limit, status };
 }
+
