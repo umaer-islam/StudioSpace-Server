@@ -209,6 +209,98 @@ async function runLiveAuthTests() {
       console.log("      ✓ [PASS] System-seeded studio protected: deletion returned 403 Forbidden.");
     }
 
+    // Test 5G: Role Escalation Prevention Audit
+    console.log("      --- Testing Role Escalation Security ---");
+    const escalationRes = await fetch(`${baseUrl}/api/auth/update-user`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "http://localhost:3000",
+        Cookie: creatorCookies,
+      },
+      body: JSON.stringify({ role: "Host", name: "Creator Escalation Attempt" }),
+    });
+
+    const creatorUserAfterAttempt = await db.collection("user").findOne({ email: creatorEmail });
+    if (creatorUserAfterAttempt?.role !== "Creator") {
+      throw new Error(`CRITICAL: Role escalation succeeded! Role was changed to: ${creatorUserAfterAttempt?.role}`);
+    }
+    console.log("      ✓ [PASS] Role escalation prevented: databaseHook stripped role update. User remains 'Creator'.");
+
+    // Test 5H: Real Better Auth JWT Token Issuance & JWKS Verification
+    console.log("      --- Testing Real Better Auth JWT & JWKS Route Authorization ---");
+    const jwtTokenRes = await fetch(`${baseUrl}/api/auth/token`, {
+      method: "GET",
+      headers: {
+        Origin: "http://localhost:3000",
+        Cookie: hostCookies,
+      },
+    });
+
+    const jwtTokenData = await jwtTokenRes.json();
+    if (!jwtTokenData.token) {
+      throw new Error(`Failed to obtain Better Auth JWT token: ${JSON.stringify(jwtTokenData)}`);
+    }
+
+    // Now send a studio mutation request using ONLY Authorization: Bearer <jwt> (NO COOKIE)
+    const bearerCreateRes = await fetch(`${baseUrl}/api/studios`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${jwtTokenData.token}`,
+      },
+      body: JSON.stringify({
+        title: "JWT-Authorized Soundstage",
+        category: "Film Stage",
+        hourlyRate: 300,
+        maxCapacity: 25,
+        location: "Long Island City, NY",
+        address: "44-02 11th St, Queens, NY",
+        overview: "Large-scale cyclorama stage authorized via Better Auth EdDSA JWT Bearer token.",
+      }),
+    });
+
+    const bearerCreateData = await bearerCreateRes.json();
+    if (bearerCreateRes.status !== 201 || bearerCreateData.data?.hostId !== hostUserId) {
+      throw new Error(`Bearer JWT studio creation failed (${bearerCreateRes.status}): ${JSON.stringify(bearerCreateData)}`);
+    }
+    console.log(`      ✓ [PASS] Protected route successfully accepted Better Auth EdDSA JWT Bearer token.`);
+
+    // Cleanup bearer studio
+    if (bearerCreateData.data?._id) {
+      await db.collection("studios").deleteOne({ _id: new (await import("mongodb")).ObjectId(bearerCreateData.data._id) });
+    }
+
+    // Test 5I: Session Revocation / Sign Out
+    console.log("      --- Testing Session Revocation on Sign-out ---");
+    const signOutRes = await fetch(`${baseUrl}/api/auth/sign-out`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "http://localhost:3000",
+        Cookie: hostCookies,
+      },
+    });
+
+    if (signOutRes.status !== 200) {
+      throw new Error(`Sign-out failed with status: ${signOutRes.status}`);
+    }
+
+    // Now test if the signed-out session cookie is rejected
+    const revokedCheckRes = await fetch(`${baseUrl}/api/studios`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: hostCookies,
+      },
+      body: JSON.stringify({ title: "Post Sign-out Attempt" }),
+    });
+
+    if (revokedCheckRes.status !== 401) {
+      throw new Error(`Expected 401 for revoked session cookie, got: ${revokedCheckRes.status}`);
+    }
+    console.log("      ✓ [PASS] Revoked session cookie correctly rejected with 401 Unauthorized.");
+
     // 6. Cleanup test records
     console.log("\n[6/6] Cleaning up test records in MongoDB Atlas...");
     const usersCol = db.collection("user");

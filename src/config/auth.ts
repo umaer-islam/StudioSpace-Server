@@ -48,6 +48,28 @@ export const auth = betterAuth({
       },
     },
   },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user) => {
+          // Strictly whitelist allowed roles at registration: only Creator or Host
+          if (user.role !== "Host" && user.role !== "Creator") {
+            user.role = "Creator";
+          }
+          return { data: user };
+        },
+      },
+      update: {
+        before: async (user) => {
+          // Prevent role escalation: strip role from user updates
+          if ("role" in user) {
+            delete (user as any).role;
+          }
+          return { data: user };
+        },
+      },
+    },
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,

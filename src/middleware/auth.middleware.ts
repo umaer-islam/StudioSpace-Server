@@ -64,17 +64,31 @@ export async function requireAuth(
       try {
         let verifiedPayload: any = null;
 
-        // Try auth.api.verifyJWT first (Better Auth internal JWKS)
+        // 1. Try auth.api.verifyJWT first (Better Auth internal JWKS)
         try {
           const result = await auth.api.verifyJWT({ body: { token } });
           if (result && result.payload) {
             verifiedPayload = result.payload;
           }
         } catch {
-          // Continue to jose fallback
+          // Continue to JWKS verification
         }
 
-        // Fallback to jose HMAC verification using BETTER_AUTH_SECRET
+        // 2. Try jose verification against public JWKS keypair (EdDSA/Ed25519)
+        if (!verifiedPayload) {
+          try {
+            const jwks = await auth.api.getJwks();
+            if (jwks && Array.isArray(jwks.keys) && jwks.keys.length > 0) {
+              const localJWKS = jose.createLocalJWKSet(jwks);
+              const { payload } = await jose.jwtVerify(token, localJWKS);
+              verifiedPayload = payload;
+            }
+          } catch {
+            // Continue to symmetric secret fallback
+          }
+        }
+
+        // 3. Fallback to jose HMAC verification using BETTER_AUTH_SECRET (HS256)
         if (!verifiedPayload) {
           try {
             const secret = new TextEncoder().encode(env.BETTER_AUTH_SECRET);
