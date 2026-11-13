@@ -9,6 +9,24 @@ try {
   // Fall back to system DNS
 }
 
+function sanitizeMongoUri(rawUri: string): string {
+  try {
+    const u = new URL(rawUri);
+    if (u.username && u.password) {
+      const decodedUser = decodeURIComponent(u.username);
+      const decodedPass = decodeURIComponent(u.password);
+      const user = encodeURIComponent(decodedUser);
+      const pass = encodeURIComponent(decodedPass);
+      const path = u.pathname || `/${env.DB_NAME}`;
+      const search = u.search || "?retryWrites=true&w=majority";
+      return `${u.protocol}//${user}:${pass}@${u.host}${path}${search}`;
+    }
+    return rawUri;
+  } catch {
+    return rawUri;
+  }
+}
+
 let client: MongoClient | null = null;
 let dbInstance: Db | null = null;
 
@@ -18,7 +36,8 @@ export async function connectToDatabase(): Promise<Db> {
   }
 
   try {
-    client = new MongoClient(env.MONGODB_URI, {
+    const uri = sanitizeMongoUri(env.MONGODB_URI);
+    client = new MongoClient(uri, {
       serverApi: {
         version: ServerApiVersion.v1,
         strict: true,
