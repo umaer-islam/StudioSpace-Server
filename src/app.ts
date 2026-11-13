@@ -1,25 +1,32 @@
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
+import { toNodeHandler } from "better-auth/node";
+import { auth } from "./config/auth.js";
 import { env } from "./config/env.js";
 import healthRoutes from "./routes/health.routes.js";
 import studioRoutes from "./routes/studio.routes.js";
 
 const app = express();
 
-// Middleware
+// 1. CORS configuration
 app.use(
   cors({
-    origin: env.CLIENT_URL,
+    origin: [env.CLIENT_URL, "http://localhost:3000"],
     credentials: true,
   })
 );
+
+// 2. Better Auth handler (Mounted BEFORE express.json())
+app.all("/api/auth/*", toNodeHandler(auth));
+
+// 3. JSON parser for remaining application routes
 app.use(express.json());
 
-// Routes
+// 4. Application routes
 app.use("/api", healthRoutes);
 app.use("/api", studioRoutes);
 
-// Centralized 404 handler
+// 5. Centralized 404 handler
 app.use((_req: Request, res: Response) => {
   res.status(404).json({
     success: false,
@@ -27,7 +34,7 @@ app.use((_req: Request, res: Response) => {
   });
 });
 
-// Centralized error handler
+// 6. Centralized error handler
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error("[Server Error]:", err.message);
 

@@ -68,6 +68,10 @@ export function getDatabase(): Db {
   return dbInstance;
 }
 
+export function isDatabaseConnected(): boolean {
+  return dbInstance !== null;
+}
+
 export async function pingDatabase(): Promise<boolean> {
   try {
     if (!client || !dbInstance) {
