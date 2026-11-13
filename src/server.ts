@@ -13,6 +13,12 @@ async function bootstrap() {
       "[Database] Initial connection attempt failed:",
       error instanceof Error ? error.message : "Unknown error"
     );
+    if (env.NODE_ENV === "production") {
+      console.error(
+        "[Fatal] Exiting process because database connection is required in production."
+      );
+      process.exit(1);
+    }
     console.warn(
       "[Server] Starting HTTP server in degraded mode. /api/health will report database connectivity status."
     );
