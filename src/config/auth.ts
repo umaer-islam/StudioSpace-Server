@@ -35,8 +35,7 @@ export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
   trustedOrigins: [
     env.CLIENT_URL,
-    "http://localhost:3000",
-    "http://localhost:5000",
+    ...(env.NODE_ENV === "development" ? ["http://localhost:3000", "http://localhost:5000"] : []),
   ],
   user: {
     additionalFields: {

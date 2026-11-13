@@ -12,7 +12,10 @@ const app = express();
 // 1. CORS configuration
 app.use(
   cors({
-    origin: [env.CLIENT_URL, "http://localhost:3000"],
+    origin: [
+      env.CLIENT_URL,
+      ...(env.NODE_ENV === "development" ? ["http://localhost:3000"] : []),
+    ],
     credentials: true,
   })
 );
