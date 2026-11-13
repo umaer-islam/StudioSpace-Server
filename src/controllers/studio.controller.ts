@@ -87,7 +87,14 @@ export async function createStudioHandler(
       return;
     }
 
-    const created = await createStudio(validation.value);
+    const studioInput = {
+      ...validation.value,
+      hostId: req.user?.id,
+      hostName: req.user?.name || validation.value.hostName || "Studio Host",
+      hostEmail: req.user?.email || validation.value.hostEmail || "",
+    };
+
+    const created = await createStudio(studioInput);
     res.status(201).json({
       success: true,
       message: "Studio created successfully",

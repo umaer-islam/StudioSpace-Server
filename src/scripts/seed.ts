@@ -255,3 +255,4 @@ seed().catch(async (err) => {
   await closeDatabaseConnection();
   process.exit(1);
 });
+

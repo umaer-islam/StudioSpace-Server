@@ -22,6 +22,7 @@ export interface Studio {
   imageUrl: string;
   amenities: string[];
   overview: string;
+  hostId?: string;
   hostName: string;
   hostEmail: string;
   rating: number;
@@ -42,8 +43,9 @@ export interface CreateStudioInput {
   imageUrl?: string;
   amenities?: string[];
   overview: string;
-  hostName: string;
-  hostEmail: string;
+  hostId?: string;
+  hostName?: string;
+  hostEmail?: string;
   rating?: number;
   reviewCount?: number;
   status?: StudioStatus;
@@ -119,13 +121,13 @@ export function validateCreateStudio(body: unknown): {
     errors.push("Field 'overview' is required and must be a non-empty string");
   }
 
-  if (typeof b.hostName !== "string" || !b.hostName.trim()) {
-    errors.push("Field 'hostName' is required and must be a non-empty string");
+  if (b.hostName !== undefined && (typeof b.hostName !== "string" || !b.hostName.trim())) {
+    errors.push("Field 'hostName' must be a non-empty string if provided");
   }
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (typeof b.hostEmail !== "string" || !emailRegex.test(b.hostEmail.trim())) {
-    errors.push("Field 'hostEmail' is required and must be a valid email address");
+  if (b.hostEmail !== undefined && (typeof b.hostEmail !== "string" || !emailRegex.test(b.hostEmail.trim()))) {
+    errors.push("Field 'hostEmail' must be a valid email address if provided");
   }
 
   if (b.amenities !== undefined && (!Array.isArray(b.amenities) || !b.amenities.every(a => typeof a === "string"))) {
@@ -151,8 +153,9 @@ export function validateCreateStudio(body: unknown): {
     imageUrl: typeof b.imageUrl === "string" ? b.imageUrl.trim() : "",
     amenities: Array.isArray(b.amenities) ? b.amenities.map(a => String(a).trim()) : [],
     overview: (b.overview as string).trim(),
-    hostName: (b.hostName as string).trim(),
-    hostEmail: (b.hostEmail as string).trim().toLowerCase(),
+    hostId: typeof b.hostId === "string" && b.hostId.trim() ? b.hostId.trim() : undefined,
+    hostName: typeof b.hostName === "string" && b.hostName.trim() ? b.hostName.trim() : undefined,
+    hostEmail: typeof b.hostEmail === "string" && b.hostEmail.trim() ? b.hostEmail.trim().toLowerCase() : undefined,
     rating: typeof b.rating === "number" && !isNaN(b.rating) ? Math.min(5, Math.max(0, b.rating)) : 5.0,
     reviewCount: typeof b.reviewCount === "number" && !isNaN(b.reviewCount) ? Math.max(0, b.reviewCount) : 0,
     status: (b.status as StudioStatus) || "active",
