@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { env } from "./config/env.js";
 import healthRoutes from "./routes/health.routes.js";
+import studioRoutes from "./routes/studio.routes.js";
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(express.json());
 
 // Routes
 app.use("/api", healthRoutes);
+app.use("/api", studioRoutes);
 
 // Centralized 404 handler
 app.use((_req: Request, res: Response) => {
@@ -39,4 +41,3 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 export default app;
-

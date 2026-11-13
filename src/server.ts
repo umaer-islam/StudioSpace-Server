@@ -7,16 +7,22 @@ let server: Server;
 
 async function bootstrap() {
   try {
-    // Connect to database before starting HTTP listener
     await connectToDatabase();
-
-    server = app.listen(env.PORT, () => {
-      console.log(`[Server] StudioSpace API running on http://localhost:${env.PORT} in ${env.NODE_ENV} mode`);
-    });
   } catch (error) {
-    console.error("[Server] Fatal error during startup:", error instanceof Error ? error.message : "Unknown error");
-    process.exit(1);
+    console.error(
+      "[Database] Initial connection attempt failed:",
+      error instanceof Error ? error.message : "Unknown error"
+    );
+    console.warn(
+      "[Server] Starting HTTP server in degraded mode. /api/health will report database connectivity status."
+    );
   }
+
+  server = app.listen(env.PORT, () => {
+    console.log(
+      `[Server] StudioSpace API running on http://localhost:${env.PORT} in ${env.NODE_ENV} mode`
+    );
+  });
 }
 
 async function shutdown(signal: string) {
@@ -37,4 +43,3 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 bootstrap();
-
