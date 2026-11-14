@@ -11,7 +11,7 @@ const seedStudios: Omit<Studio, "_id" | "createdAt" | "updatedAt">[] = [
     maxCapacity: 25,
     location: "DUMBO, Brooklyn",
     address: "55 Washington Street, Studio 402",
-    imageUrl: "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=1200&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1527011046414-4781f1f94f8c?auto=format&fit=crop&w=1200&q=80",
     amenities: ["Corner Daylight", "16ft White Cyclorama", "Profoto D2 Lighting Kit", "Hair & Makeup Vanity", "Freight Elevator", "High-Speed WiFi"],
     overview: "A bright 2,200 sq ft corner daylight studio in iconic DUMBO with sweeping Manhattan views, polished concrete floors, and full blackout capability.",
     hostName: "Maya Lin",
@@ -117,7 +117,7 @@ const seedStudios: Omit<Studio, "_id" | "createdAt" | "updatedAt">[] = [
     maxCapacity: 6,
     location: "Williamsburg, Brooklyn",
     address: "210 Bedford Avenue, Floor 2",
-    imageUrl: "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=1200&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?auto=format&fit=crop&w=1200&q=80",
     amenities: ["Electro-Voice RE20 Mics", "Sound Devices MixPre-6", "Ultra-Silent Room Treatment", "Mid-Century Lounge Seating", "High-Speed Fiber"],
     overview: "Intimate and cozy podcast room tailored for conversational storytelling, journalism interviews, and voiceover recordings.",
     hostName: "Chloe Sterling",
@@ -230,6 +230,19 @@ async function seed() {
   for (const studio of seedStudios) {
     const existing = await collection.findOne({ title: studio.title });
     if (existing) {
+      await collection.updateOne(
+        { _id: existing._id },
+        {
+          $set: {
+            imageUrl: studio.imageUrl,
+            category: studio.category,
+            overview: studio.overview,
+            amenities: studio.amenities,
+            hourlyRate: studio.hourlyRate,
+            updatedAt: now,
+          },
+        }
+      );
       skippedCount++;
     } else {
       await collection.insertOne({
